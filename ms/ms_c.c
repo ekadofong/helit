@@ -76,7 +76,7 @@ static PyObject * MeanShift_new_py(PyTypeObject * type, PyObject * args, PyObjec
 static void MeanShift_dealloc_py(MeanShift * self)
 {
  MeanShift_dealloc(self);
- self->ob_type->tp_free((PyObject*)self);
+ Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 
@@ -90,7 +90,7 @@ static PyObject * MeanShift_kernels_py(MeanShift * self, PyObject * args)
   int i = 0;
   while (ListKernel[i]!=NULL)
   {
-   PyObject * name = PyString_FromString(ListKernel[i]->name);
+   PyObject * name = PyUnicode_FromString(ListKernel[i]->name);
    PyList_Append(ret, name);
    Py_DECREF(name);
    
@@ -243,7 +243,7 @@ static PyObject * MeanShift_spatials_py(MeanShift * self, PyObject * args)
   int i = 0;
   while (ListSpatial[i]!=NULL)
   {
-   PyObject * name = PyString_FromString(ListSpatial[i]->name);
+   PyObject * name = PyUnicode_FromString(ListSpatial[i]->name);
    PyList_Append(ret, name);
    Py_DECREF(name);
    
@@ -304,7 +304,7 @@ static PyObject * MeanShift_balls_py(MeanShift * self, PyObject * args)
   int i = 0;
   while (ListBalls[i]!=NULL)
   {
-   PyObject * name = PyString_FromString(ListBalls[i]->name);
+   PyObject * name = PyUnicode_FromString(ListBalls[i]->name);
    PyList_Append(ret, name);
    Py_DECREF(name);
    
@@ -370,7 +370,7 @@ static PyObject * MeanShift_info_py(MeanShift * self, PyObject * args)
   {
    if (strcmp(ListKernel[i]->name, name)==0)
    {
-    return PyString_FromString(ListKernel[i]->description);
+    return PyUnicode_FromString(ListKernel[i]->description);
    }
    
    ++i; 
@@ -381,7 +381,7 @@ static PyObject * MeanShift_info_py(MeanShift * self, PyObject * args)
   {
    if (strcmp(ListSpatial[i]->name, name)==0)
    {
-    return PyString_FromString(ListSpatial[i]->description);
+    return PyUnicode_FromString(ListSpatial[i]->description);
    }
    
    ++i; 
@@ -392,7 +392,7 @@ static PyObject * MeanShift_info_py(MeanShift * self, PyObject * args)
   {
    if (strcmp(ListBalls[i]->name, name)==0)
    {
-    return PyString_FromString(ListBalls[i]->description);
+    return PyUnicode_FromString(ListBalls[i]->description);
    }
    
    ++i; 
@@ -419,7 +419,7 @@ static PyObject * MeanShift_info_config_py(MeanShift * self, PyObject * args)
    {
     if (ListKernel[i]->configuration!=NULL)
     {
-     return PyString_FromString(ListKernel[i]->configuration);
+     return PyUnicode_FromString(ListKernel[i]->configuration);
     }
     else
     {
@@ -531,7 +531,7 @@ static PyObject * MeanShift_converters_py(MeanShift * self, PyObject * args)
   int i = 0;
   while (ListConvert[i]!=NULL)
   {
-   PyObject * name = PyString_FromStringAndSize(&ListConvert[i]->code, 1);
+   PyObject * name = PyUnicode_FromStringAndSize(&ListConvert[i]->code, 1);
    PyList_Append(ret, name);
    Py_DECREF(name);
    
@@ -730,8 +730,8 @@ static PyObject * MeanShift_get_dm_py(MeanShift * self, PyObject * args)
 
 static PyObject * MeanShift_get_dim_py(MeanShift * self, PyObject * args)
 {
- PyObject * ret = PyString_FromStringAndSize(NULL, PyArray_NDIM(self->dm.array));
- char * out = PyString_AsString(ret);
+ PyObject * ret = PyUnicode_FromStringAndSize(NULL, PyArray_NDIM(self->dm.array));
+ char * out = PyUnicode_AsString(ret);
  
  int i;
  for (i=0;i<PyArray_NDIM(self->dm.array);i++)
@@ -2046,9 +2046,10 @@ static PyObject * MeanShift_manifolds_py(MeanShift * self, PyObject * args)
   }
   
  // Check the input is acceptable...
-  npy_intp dims[2];
+  npy_intp dims[3];
   dims[0] = PyArray_DIMS(start)[0];
   dims[1] = DataMatrix_ext_features(&self->dm);
+  dims[2] = 2+DataMatrix_ext_features(&self->dm);
   
   if ((PyArray_NDIM(start)!=2)||(PyArray_DIMS(start)[1]!=dims[1]))
   {
@@ -2064,7 +2065,7 @@ static PyObject * MeanShift_manifolds_py(MeanShift * self, PyObject * args)
   }
 
  // Create an output matrix...  
-  PyArrayObject * ret = (PyArrayObject*)PyArray_SimpleNew(2, dims, NPY_FLOAT32);
+  PyArrayObject * ret = (PyArrayObject*)PyArray_SimpleNew(3, dims, NPY_FLOAT32);
   
  // Calculate each mode in turn, including undo any scale changes...
   int feats_int = DataMatrix_features(&self->dm);
@@ -2093,7 +2094,10 @@ static PyObject * MeanShift_manifolds_py(MeanShift * self, PyObject * args)
    
     for (i=0; i<dims[1]; i++)
     {
-     *(float*)PyArray_GETPTR2(ret, j, i) = fv[i]; 
+     *(float*)PyArray_GETPTR3(ret, j, i, 0) = fv[i]; 
+     *(float*)PyArray_GETPTR3(ret, j, i, 1) = eigen_val[i]; 
+     *(float*)PyArray_GETPTR3(ret, j, i, 2) = eigen_vec[i*2+0]; 
+     *(float*)PyArray_GETPTR3(ret, j, i, 3) = eigen_vec[i*2+1];     
     }
   }
   
@@ -2454,7 +2458,7 @@ static PyObject * MeanShift_sizeof_py(MeanShift * self, PyObject * args)
  int dims = DataMatrix_features(&self->dm);
  int ref_count;
  size_t shared_mem = self->kernel->byte_size(dims, self->config, &ref_count);
- if (self->name!=NULL) shared_mem += PyString_Size(self->name); // Wrong, but can't figure out the right way!
+ if (self->name!=NULL) shared_mem += PyUnicode_Size(self->name); // Wrong, but can't figure out the right way!
  mem += (size_t)ceil(shared_mem / (float)ref_count);
  
  mem += DataMatrix_byte_size(&self->dm);
@@ -2480,7 +2484,7 @@ static PyObject * MeanShift_memory_py(MeanShift * self, PyObject * args)
  
  int ref_count;
  size_t kernel_mem = self->kernel->byte_size(dims, self->config, &ref_count);
- if (self->name!=NULL) kernel_mem += PyString_Size(self->name); // Wrong, but can't figure out the right way!
+ if (self->name!=NULL) kernel_mem += PyUnicode_Size(self->name); // Wrong, but can't figure out the right way!
  
  size_t dm_mem = DataMatrix_byte_size(&self->dm);
  
