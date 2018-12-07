@@ -864,5 +864,5 @@ void manifold(Spatial spatial, int degrees, float * fv, float * grad, float * he
 // Dummy function, to make a warning go away because it was annoying me...
 void MeanShift_IgnoreMe(void)
 {
- import_array();  
+ import_array1();  
 }

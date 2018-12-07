@@ -559,5 +559,5 @@ void mult(const Kernel * kernel, KernelConfig * config, int terms, Spatial * spa
 // Dummy function, to make a warning go away because it was annoying me...
 void MultModule_IgnoreMe(void)
 {
- import_array();  
+ import_array1();  
 }

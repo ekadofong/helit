@@ -121,7 +121,7 @@ ToFloat KindToFunc(const PyArray_Descr * descr)
 void DataMatrix_init(DataMatrix * dm)
 {
  // Not 100% sure this is needed, as this module is used by a module that will inevitably call it, but just incase and to make the compiler shut up about me not calling it...
-  import_array();
+  import_array1();
   
  // Initalise everything to nulls etc...
   dm->array = NULL;

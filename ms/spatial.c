@@ -623,5 +623,5 @@ const SpatialType * ListSpatial[] =
 // Dummy function, to make a warning go away because it was annoying me...
 void SpatialModule_IgnoreMe(void)
 {
- import_array();  
+ import_array1();  
 }

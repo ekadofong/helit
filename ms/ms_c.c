@@ -623,13 +623,13 @@ static PyObject * MeanShift_set_data_py(MeanShift * self, PyObject * args)
   int weight_i = -1;
   if ((weight_index!=NULL)&&(weight_index!=Py_None))
   {
-   if (PyInt_Check(weight_index)==0)
+   if (PyLong_Check(weight_index)==0)
    {
     PyErr_SetString(PyExc_RuntimeError, "weight index must be an integer");
     return NULL;  
    }
     
-   weight_i = PyInt_AsLong(weight_index);
+   weight_i = PyLong_AsLong(weight_index);
    
    if ((weight_i>=0)&&(weight_i<features))
    {
@@ -731,7 +731,7 @@ static PyObject * MeanShift_get_dm_py(MeanShift * self, PyObject * args)
 static PyObject * MeanShift_get_dim_py(MeanShift * self, PyObject * args)
 {
  PyObject * ret = PyUnicode_FromStringAndSize(NULL, PyArray_NDIM(self->dm.array));
- char * out = PyUnicode_AsString(ret);
+ char * out = PyUnicode_AsUnicode(ret);
  
  int i;
  for (i=0;i<PyArray_NDIM(self->dm.array);i++)
@@ -2458,7 +2458,7 @@ static PyObject * MeanShift_sizeof_py(MeanShift * self, PyObject * args)
  int dims = DataMatrix_features(&self->dm);
  int ref_count;
  size_t shared_mem = self->kernel->byte_size(dims, self->config, &ref_count);
- if (self->name!=NULL) shared_mem += PyUnicode_Size(self->name); // Wrong, but can't figure out the right way!
+ if (self->name!=NULL) shared_mem += PyUnicode_GET_LENGTH(self->name); // Wrong, but can't figure out the right way!
  mem += (size_t)ceil(shared_mem / (float)ref_count);
  
  mem += DataMatrix_byte_size(&self->dm);
@@ -2484,7 +2484,7 @@ static PyObject * MeanShift_memory_py(MeanShift * self, PyObject * args)
  
  int ref_count;
  size_t kernel_mem = self->kernel->byte_size(dims, self->config, &ref_count);
- if (self->name!=NULL) kernel_mem += PyUnicode_Size(self->name); // Wrong, but can't figure out the right way!
+ if (self->name!=NULL) kernel_mem += PyUnicode_GET_LENGTH(self->name); // Wrong, but can't figure out the right way!
  
  size_t dm_mem = DataMatrix_byte_size(&self->dm);
  
@@ -2661,7 +2661,6 @@ static PyMethodDef MeanShift_methods[] =
 static PyTypeObject MeanShiftType =
 {
  PyObject_HEAD_INIT(NULL)
- 0,                                /*ob_size*/
  "ms_c.MeanShift",                 /*tp_name*/
  sizeof(MeanShift),                /*tp_basicsize*/
  0,                                /*tp_itemsize*/
@@ -2718,18 +2717,29 @@ static PyMethodDef ms_c_methods[] =
 #define PyMODINIT_FUNC void
 #endif
 
-PyMODINIT_FUNC initms_c(void)
+PyMODINIT_FUNC PyInit_ms_c(void)
 {
- PyObject * mod = Py_InitModule3("ms_c", ms_c_methods, "Primarily provides a mean shift implementation, but also includes kernel density estimation and subspace constrained mean shift using the same object, such that they are all using the same underlying density estimate. Includes multiple spatial indexing schemes and kernel types, including support for directional data. Clustering is supported, with a choice of cluster intersection tests, as well as the ability to interpret exemplar indexing dimensions of the data matrix as extra features, so it can handle the traditional image segmentation scenario efficiently. Exemplars can also be weighted. There is extensive support for particle filters as well, including multiplication of distributions for non-parametric belief propagation. Note that this module is not multithread safe - use multiprocessing instead.");
- 
- import_array();
- 
- if (PyType_Ready(&MeanShiftType) < 0) return;
- 
- Py_INCREF(&MeanShiftType);
- PyModule_AddObject(mod, "MeanShift", (PyObject*)&MeanShiftType);
- 
- // Fun little hack - there is some memory in a global pointer, so we add a capsule object to the module for no other purpose than to make sure it gets free-ed via the capsule destructor when the module is put down...
+  static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "ms_c",
+    NULL,
+    -1,
+    ms_c_methods
+  };
+  PyObject * mod = PyModule_Create(&moduledef);  
+  import_array();
+
+  if (PyType_Ready(&MeanShiftType) < 0) return NULL;
+
+  Py_INCREF(&MeanShiftType);
+
+  PyModule_AddObject(mod, "MeanShift", (PyObject*)&MeanShiftType);
+
+
+  // Fun little hack - there is some memory in a global pointer, so we add a capsule object to the module for no other purpose than to make sure it gets free-ed via the capsule destructor when the module is put down...
   PyObject * bessel_death = PyCapsule_New("Ignore me", NULL, FreeBesselMemory);
   PyModule_AddObject(mod, "__bessel_death", bessel_death);
+
+  return mod;
+ 
 }
